@@ -167,20 +167,40 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, answer, destination });
   } catch (error) {
+    // Keep enough information in server logs to diagnose deployment/API
+    // configuration problems without ever logging the API key or request body.
     const errorStatus =
       typeof error === "object" && error !== null && "status" in error
-        ? error.status
+        ? Number(error.status)
         : undefined;
-    const isRateLimited = errorStatus === 429;
+    const model = process.env.GEMINI_MODEL?.trim() || "gemini-3.8-flash";
+    const errorName = error instanceof Error ? error.name : "UnknownError";
+    console.error("[ReXo] Gemini request failed", {
+      status: Number.isFinite(errorStatus) ? errorStatus : undefined,
+      errorName,
+      model,
+    });
 
     return NextResponse.json(
       {
         success: false,
-        error: isRateLimited
-          ? "ReXo is busy right now. Please wait a moment and try again."
-          : "ReXo couldn't reach its AI service just now. Please try again or use the contact options on this website.",
+        error:
+          errorStatus === 401 || errorStatus === 403
+            ? "ReXo's AI connection needs attention. Please contact Aarushi Infotech or try again later."
+            : errorStatus === 404
+              ? "ReXo's AI model is temporarily unavailable. Please contact Aarushi Infotech or try again later."
+              : errorStatus === 429
+                ? "ReXo is busy right now. Please wait a moment and try again."
+                : errorStatus === 400
+                  ? "ReXo couldn't process that request. Please try rephrasing your message."
+                  : "ReXo couldn't reach its AI service just now. Please try again or use the contact options on this website.",
       },
-      { status: isRateLimited ? 429 : 502 },
+      {
+        status:
+          errorStatus === 401 || errorStatus === 403 || errorStatus === 404 || errorStatus === 429 || errorStatus === 400
+            ? errorStatus
+            : 502,
+      },
     );
   }
 }

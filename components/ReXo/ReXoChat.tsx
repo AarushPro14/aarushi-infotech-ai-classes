@@ -11,6 +11,7 @@ type Message = {
   id: string;
   role: "user" | "assistant";
   content: string;
+  isError?: boolean;
 };
 
 const internalDestinations: Record<string, string> = {
@@ -49,78 +50,115 @@ export default function ReXoChat({ onClose }: ReXoChatProps) {
 
   const [thinking, setThinking] = useState(false);
   const [thinkingText, setThinkingText] = useState("");
+  const [retryMessage, setRetryMessage] = useState<string | null>(null);
 
-  async function sendMessage(messageText?: string) {
+  async function sendMessage(messageText?: string, isRetry = false) {
     const message = (messageText ?? input).trim();
 
     if (!message || thinking) return;
 
     setInput("");
+    setRetryMessage(null);
 
-    const userMessage: Message = {
-      id: `${Date.now()}-user`,
-      role: "user",
-      content: message,
-    };
-
-    setMessages((previous) => [...previous, userMessage]);
+    if (!isRetry) {
+      setMessages((previous) => [
+        ...previous,
+        { id: `${Date.now()}-user`, role: "user", content: message },
+      ]);
+    }
     setThinking(true);
-    setThinkingText("Finding a helpful answer...");
+    setThinkingText("ReXo is preparing a helpful answer...");
+
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 30_000);
 
     try {
       const response = await fetch("/api/rexo", {
         method: "POST",
+        signal: controller.signal,
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
           message,
-          history: messages.slice(1).slice(-12).map(({ role, content }) => ({
-            role,
-            content,
-          })),
+          history: (() => {
+            const history = messages
+              .slice(1)
+              .filter((item) => !item.isError)
+              .map(({ role, content }) => ({ role, content }));
+
+            // On retry, resend the failed question once instead of duplicating
+            // its previous user bubble in the conversation context.
+            if (isRetry && history.at(-1)?.role === "user" && history.at(-1)?.content === message) {
+              history.pop();
+            }
+
+            return history.slice(-12);
+          })(),
         }),
       });
 
-      const data = await response.json();
+      const data: unknown = await response.json().catch(() => null);
+      const result = typeof data === "object" && data !== null ? data : null;
+      const apiError = result && "error" in result && typeof result.error === "string"
+        ? result.error
+        : null;
 
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || "ReXo error");
+      if (!response.ok || !result || !("success" in result) || result.success !== true) {
+        const fallbackError = response.status === 429
+          ? "ReXo is receiving a lot of questions right now. Please wait a moment and try again."
+          : response.status >= 500
+            ? "ReXo's AI service is temporarily unavailable. Please try again shortly."
+            : "ReXo couldn't process that request. Please try again.";
+        throw new Error(apiError || fallbackError);
       }
 
       const assistantMessage: Message = {
         id: `${Date.now()}-assistant`,
         role: "assistant",
         content:
-          typeof data.answer === "string" && data.answer.trim()
-            ? data.answer.trim()
+          "answer" in result && typeof result.answer === "string" && result.answer.trim()
+            ? result.answer.trim()
             : "I'm sorry, I couldn't prepare a clear answer just now. Please try again or use the contact options on this website.",
       };
 
       setMessages((previous) => [...previous, assistantMessage]);
 
-      if (data.destination === "location") {
+      if ("destination" in result && result.destination === "location") {
         window.location.assign(locationUrl);
         return;
       }
 
-      if (typeof data.destination === "string" && internalDestinations[data.destination]) {
-        const destination = internalDestinations[data.destination];
+      if (
+        "destination" in result &&
+        typeof result.destination === "string" &&
+        internalDestinations[result.destination]
+      ) {
+        const destination = internalDestinations[result.destination];
         onClose();
         router.push(destination);
       }
     } catch (error) {
+      const errorMessage = error instanceof Error && error.name === "AbortError"
+        ? "That took longer than expected. Please check your connection and try again."
+        : error instanceof TypeError
+          ? "ReXo couldn't connect to the website's AI service. Check your connection and try again."
+          : error instanceof Error && error.message
+            ? error.message
+            : "ReXo couldn't process that request. Please try again or use the contact options on this website.";
+
       setMessages((previous) => [
         ...previous,
         {
           id: `${Date.now()}-error`,
           role: "assistant",
-          content: error instanceof Error && error.message
-            ? error.message
-            : "ReXo couldn't process that request right now. Please try again or use the contact options on this website.",
+          content: errorMessage,
+          isError: true,
         },
       ]);
+      setRetryMessage(message);
     } finally {
+      window.clearTimeout(timeoutId);
       setThinking(false);
       setThinkingText("");
     }
@@ -197,6 +235,18 @@ export default function ReXoChat({ onClose }: ReXoChatProps) {
                 {thinkingText}
               </div>
             </div>
+          </div>
+        )}
+
+        {retryMessage && !thinking && (
+          <div className="flex justify-start pl-1">
+            <button
+              type="button"
+              onClick={() => void sendMessage(retryMessage, true)}
+              className="rounded-full border border-emerald-400/30 px-3 py-1.5 text-xs font-medium text-emerald-200 transition hover:bg-emerald-400/10"
+            >
+              Try that question again
+            </button>
           </div>
         )}
       </div>
