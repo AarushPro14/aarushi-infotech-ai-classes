@@ -1,4 +1,5 @@
 
+import ReXoButton from "@/components/ReXo/ReXoButton";
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
@@ -91,7 +92,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+  {children}
+  <ReXoButton />
+</body>
     </html>
   );
 }
