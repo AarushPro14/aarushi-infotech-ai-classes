@@ -272,6 +272,7 @@ export default function HomePage() {
                 src="/images/IMG-logo.jpeg"
                 alt="Aarushi Infotech"
                 fill
+                sizes="40px"
                 className="object-cover"
               />
             </div>
@@ -1395,7 +1396,7 @@ export default function HomePage() {
           ULTRA CONTACT COMMAND CENTER
       ===================================================== */}
 
-      <section className="relative overflow-hidden border-t border-white/5 px-5 py-28 md:px-8 md:py-36">
+      <section id="contact" className="relative overflow-hidden border-t border-white/5 px-5 py-28 md:px-8 md:py-36">
         <div className="pointer-events-none absolute left-1/2 top-1/2 h-96 w-96 -translate-x-1/2 -translate-y-1/2 rounded-full bg-cyan-500/10 blur-[140px]" />
 
         <div className="relative mx-auto max-w-7xl">
@@ -1574,6 +1575,7 @@ export default function HomePage() {
                       src="/images/IMG-logo.jpeg"
                       alt="Aarushi Infotech"
                       fill
+                      sizes="56px"
                       className="object-cover"
                     />
                   </div>
@@ -1711,6 +1713,7 @@ export default function HomePage() {
                     src="/images/IMG-logo.jpeg"
                     alt="Aarushi Infotech"
                     fill
+                    sizes="48px"
                     className="object-cover"
                   />
                 </div>
