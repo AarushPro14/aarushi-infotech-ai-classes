@@ -15,6 +15,7 @@ export const metadata: Metadata = {
     "Master the power of AI with Aarushi Infotech AI Classes — learn AI, data handling, data analysis, content creation, business technology and more.",
 
   applicationName: "AI Classes",
+  manifest: "/manifest.json",
 
   keywords: [
     "AI Classes",
