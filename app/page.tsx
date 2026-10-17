@@ -310,6 +310,20 @@ export default function HomePage() {
             </Link>
 
             <Link
+              href="/send-query"
+              className="text-sm font-medium text-slate-300 transition hover:text-emerald-200"
+            >
+              Send Query
+            </Link>
+
+            <Link
+              href="/booking"
+              className="text-sm font-medium text-slate-300 transition hover:text-emerald-200"
+            >
+              Book a Class
+            </Link>
+
+            <Link
               href="/start"
               className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-5 py-2 text-sm font-black text-cyan-300 transition hover:bg-cyan-400/20"
             >
@@ -318,10 +332,10 @@ export default function HomePage() {
           </div>
 
           <Link
-            href="/classes"
-            className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-xs font-black text-cyan-300 md:hidden"
+            href="/booking"
+            className="rounded-full border border-emerald-300/30 bg-emerald-300/10 px-4 py-2 text-xs font-black text-emerald-200 md:hidden"
           >
-            EXPLORE
+            BOOK A CLASS
           </Link>
         </div>
       </nav>
@@ -1768,6 +1782,20 @@ export default function HomePage() {
                   className="block hover:text-cyan-300"
                 >
                   Get Started
+                </Link>
+
+                <Link
+                  href="/send-query"
+                  className="block hover:text-emerald-200"
+                >
+                  Send Query
+                </Link>
+
+                <Link
+                  href="/booking"
+                  className="block hover:text-emerald-200"
+                >
+                  Book a Class
                 </Link>
               </div>
             </div>
