@@ -10,17 +10,16 @@ ReXo calls Gemini from the server-side `/api/rexo` route. The API key is read on
 
    ```env
    GEMINI_API_KEY=your_key
-   GEMINI_MODEL=gemini-3.1-flash-lite
    ```
 
 4. Save the file and restart the local development server.
 5. Open ReXo and ask a question about a class, a service, or a follow-up to an earlier question.
 
-The recommended model is `gemini-3.1-flash-lite`, which Google describes as optimized for speed and cost efficiency. ReXo uses minimal thinking, a compact website reference, and a bounded answer length to prioritize low latency. If the model is unavailable to your key, the route tries `gemini-3.5-flash-lite` once. You can change `GEMINI_MODEL` if your key has different model access. Model access and quotas vary by account.
+ReXo uses `gemini-3.1-flash-lite` with minimal thinking and streams text to the chat as it is generated. If Google reports that model as unavailable to your key, the route tries `gemini-3.5-flash-lite` once. An existing `GEMINI_MODEL` setting is ignored so an older, slower deployment setting cannot override the fast default. Model access and quotas vary by account.
 
 ## Deployment
 
-For a Vercel deployment, add `GEMINI_API_KEY` and (optionally) `GEMINI_MODEL` under the project's Environment Variables. Add them to every environment where ReXo should work, then redeploy. Do not paste the key into source files, chat messages, or a public repository.
+For a Vercel deployment, add `GEMINI_API_KEY` under the project's Environment Variables in every environment where ReXo should work, then redeploy. Do not paste the key into source files, chat messages, or a public repository.
 
 ## ReXo's website knowledge and behavior
 

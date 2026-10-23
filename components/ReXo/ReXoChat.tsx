@@ -10,6 +10,32 @@ import { findReXoFaqAnswer } from "@/data/rexoFaq";
 
 type Message = { id: string; role: "user" | "assistant"; content: string };
 
+function extractGeminiText(event: string): string {
+  const data = event
+    .split(/\r?\n/)
+    .filter((line) => line.startsWith("data:"))
+    .map((line) => line.slice(5).trim())
+    .join("\n");
+  if (!data || data === "[DONE]") return "";
+
+  try {
+    const payload: unknown = JSON.parse(data);
+    if (typeof payload !== "object" || payload === null || !("candidates" in payload) || !Array.isArray(payload.candidates)) return "";
+    const candidate: unknown = payload.candidates[0];
+    if (typeof candidate !== "object" || candidate === null || !("content" in candidate)) return "";
+    const content = candidate.content;
+    if (typeof content !== "object" || content === null || !("parts" in content) || !Array.isArray(content.parts)) return "";
+    return content.parts
+      .map((part: unknown) => {
+        if (typeof part !== "object" || part === null || !("text" in part) || typeof part.text !== "string") return "";
+        return "thought" in part && part.thought === true ? "" : part.text;
+      })
+      .join("");
+  } catch {
+    return "";
+  }
+}
+
 const starterMessage: Message = {
   id: "welcome",
   role: "assistant",
@@ -30,8 +56,8 @@ export default function ReXoChat({ onClose }: ReXoChatProps) {
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [messages]);
+    endRef.current?.scrollIntoView({ behavior: thinking ? "auto" : "smooth", block: "end" });
+  }, [messages, thinking]);
 
   async function sendMessage(text = input) {
     const question = text.trim();
@@ -55,13 +81,56 @@ export default function ReXoChat({ onClose }: ReXoChatProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: question, history }),
       });
-      const result: unknown = await response.json().catch(() => null);
-      const payload = typeof result === "object" && result !== null ? result : null;
-      const errorMessage = payload && "error" in payload && typeof payload.error === "string" ? payload.error : "ReXo couldn’t prepare a reply. Please try again.";
-      if (!response.ok || !payload || !("success" in payload) || payload.success !== true) throw new Error(errorMessage);
+      if (!response.ok) {
+        const result: unknown = await response.json().catch(() => null);
+        const payload = typeof result === "object" && result !== null ? result : null;
+        const errorMessage = payload && "error" in payload && typeof payload.error === "string"
+          ? payload.error
+          : "ReXo couldn’t prepare a reply. Please try again.";
+        throw new Error(errorMessage);
+      }
 
-      const answer = "answer" in payload && typeof payload.answer === "string" && payload.answer.trim() ? payload.answer.trim() : "I couldn’t prepare a clear answer. Please try asking another way.";
-      setMessages((previous) => [...previous, { id: `${Date.now()}-assistant`, role: "assistant", content: answer }]);
+      if (response.headers.get("content-type")?.includes("text/event-stream") && response.body) {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        const assistantId = `${Date.now()}-assistant`;
+        let answer = "";
+        let buffer = "";
+
+        function appendEvent(event: string) {
+          const chunk = extractGeminiText(event);
+          if (!chunk) return;
+          answer += chunk;
+          const currentAnswer = answer;
+          setMessages((previous) => {
+            const existing = previous.findIndex((item) => item.id === assistantId);
+            if (existing === -1) return [...previous, { id: assistantId, role: "assistant", content: currentAnswer }];
+            return previous.map((item) => item.id === assistantId ? { ...item, content: currentAnswer } : item);
+          });
+        }
+
+        while (true) {
+          const { value, done } = await reader.read();
+          buffer += decoder.decode(value, { stream: !done });
+          const events = buffer.split(/\r?\n\r?\n/);
+          buffer = events.pop() ?? "";
+          events.forEach(appendEvent);
+          if (done) break;
+        }
+        if (buffer.trim()) appendEvent(buffer);
+        if (!answer.trim()) throw new Error("ReXo couldn’t prepare a clear answer. Please try again.");
+      } else {
+        // Keep compatibility with an older deployment while the new route rolls out.
+        const result: unknown = await response.json().catch(() => null);
+        const payload = typeof result === "object" && result !== null ? result : null;
+        if (!payload) throw new Error("ReXo couldn’t prepare a clear answer. Please try again.");
+        const succeeded = "success" in payload && payload.success === true;
+        const answerText = "answer" in payload && typeof payload.answer === "string" ? payload.answer.trim() : "";
+        if (!succeeded || !answerText) {
+          throw new Error("ReXo couldn’t prepare a clear answer. Please try again.");
+        }
+        setMessages((previous) => [...previous, { id: `${Date.now()}-assistant`, role: "assistant", content: answerText }]);
+      }
 
     } catch (error) {
       const message = error instanceof Error ? error.message : "ReXo couldn’t reach its AI service. Please try again.";

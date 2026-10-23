@@ -7,13 +7,13 @@ type Turn = { role: "user" | "model"; parts: { text: string }[] };
 
 function buildConversation(history: unknown, message: string): Turn[] {
   const turns: Turn[] = [];
-  const entries = Array.isArray(history) ? history.slice(-8) : [];
+  const entries = Array.isArray(history) ? history.slice(-4) : [];
 
   for (const entry of entries) {
     if (typeof entry !== "object" || entry === null || !("role" in entry) || !("content" in entry)) continue;
     const role = entry.role === "assistant" ? "model" : entry.role === "user" ? "user" : null;
     if (!role || typeof entry.content !== "string") continue;
-    const text = entry.content.trim().slice(0, 1800);
+    const text = entry.content.trim().slice(0, 1000);
     if (!text || (!turns.length && role === "model")) continue;
     const previous = turns.at(-1);
     if (previous?.role === role) previous.parts[0].text += `\n${text}`;
@@ -42,25 +42,17 @@ export async function POST(request: Request) {
   const apiKey = process.env.GEMINI_API_KEY?.trim();
   if (!apiKey) return NextResponse.json({ success: false, error: "ReXo’s AI connection is not configured. Please contact Aarushi Infotech." }, { status: 503 });
 
-  // Flash-Lite is optimized for fast, high-volume answers. An environment
-  // override is useful when a deployment's key has different model access.
-  const preferredModel = process.env.GEMINI_MODEL?.trim() || "gemini-3.1-flash-lite";
-  const models = [...new Set([preferredModel, "gemini-3.5-flash-lite"])];
-  const thinkingLevel = preferredModel.includes("flash-lite") ? "minimal" : "low";
+  // Keep the fastest model as the production default even if an older
+  // GEMINI_MODEL value is still set in the deployment environment.
+  const models = ["gemini-3.1-flash-lite", "gemini-3.5-flash-lite"];
   let model = models[0];
   try {
     const requestBody = JSON.stringify({
         systemInstruction: { parts: [{ text: rexoSystemInstruction }] },
         contents: buildConversation("history" in body ? body.history : undefined, message),
         generationConfig: {
-          maxOutputTokens: 700,
-          thinkingConfig: { thinkingLevel },
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: "OBJECT",
-            properties: { answer: { type: "STRING" } },
-            required: ["answer"],
-          },
+          maxOutputTokens: 500,
+          thinkingConfig: { thinkingLevel: "minimal" },
         },
       });
 
@@ -68,13 +60,13 @@ export async function POST(request: Request) {
     let result: unknown = null;
     for (let index = 0; index < models.length; index += 1) {
       model = models[index];
-      response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
+      response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:streamGenerateContent?alt=sse`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
         body: requestBody,
         signal: AbortSignal.timeout(25000),
       });
-      result = await response.json().catch(() => null);
+      if (!response.ok) result = await response.json().catch(() => null);
 
       const shouldTryFallback = !response.ok && response.status === 404 && index < models.length - 1;
       if (!shouldTryFallback) break;
@@ -112,17 +104,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: friendly }, { status: status === 429 ? 429 : 502 });
     }
 
-    const candidates = typeof result === "object" && result !== null && "candidates" in result && Array.isArray(result.candidates) ? result.candidates : [];
-    const candidate = candidates[0];
-    const content = typeof candidate === "object" && candidate !== null && "content" in candidate ? candidate.content : null;
-    const parts: unknown[] = typeof content === "object" && content !== null && "parts" in content && Array.isArray(content.parts) ? content.parts : [];
-    const text = parts.map((part: unknown) => typeof part === "object" && part !== null && "text" in part && typeof part.text === "string" ? part.text : "").join("").trim();
-    const parsed: unknown = JSON.parse(text);
-
-    if (typeof parsed !== "object" || parsed === null || !("answer" in parsed) || typeof parsed.answer !== "string" || !parsed.answer.trim()) {
-      throw new Error("Invalid model response");
-    }
-    return NextResponse.json({ success: true, answer: parsed.answer.trim() });
+    if (!response.body) throw new Error("Gemini returned an empty response stream");
+    return new Response(response.body, {
+      headers: {
+        "Content-Type": "text/event-stream; charset=utf-8",
+        "Cache-Control": "no-cache, no-transform",
+        "X-Accel-Buffering": "no",
+      },
+    });
   } catch (error) {
     console.error("[ReXo] AI request failed", { name: error instanceof Error ? error.name : "UnknownError", model });
     const message = error instanceof Error && error.name === "TimeoutError"
