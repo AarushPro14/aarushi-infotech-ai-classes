@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import ReXoMessage from "./ReXoMessage";
 import { rexoSuggestedMessages } from "@/data/rexoResponses";
+import { findReXoFaqAnswer } from "@/data/rexoFaq";
 
 type Message = { id: string; role: "user" | "assistant"; content: string };
 
@@ -40,6 +41,13 @@ export default function ReXoChat({ onClose }: ReXoChatProps) {
     setInput("");
     setNotice("");
     setShowGuides(false);
+
+    const faqAnswer = findReXoFaqAnswer(question);
+    if (faqAnswer) {
+      setMessages((previous) => [...previous, { id: `${Date.now()}-assistant`, role: "assistant", content: faqAnswer }]);
+      return;
+    }
+
     setThinking(true);
     try {
       const response = await fetch("/api/rexo", {

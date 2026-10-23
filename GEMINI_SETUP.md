@@ -10,13 +10,13 @@ ReXo calls Gemini from the server-side `/api/rexo` route. The API key is read on
 
    ```env
    GEMINI_API_KEY=your_key
-   GEMINI_MODEL=gemini-3.8-flash
+   GEMINI_MODEL=gemini-3.1-flash-lite
    ```
 
 4. Save the file and restart the local development server.
 5. Open ReXo and ask a question about a class, a service, or a follow-up to an earlier question.
 
-The current default is `gemini-3.8-flash`. ReXo uses the model's `low` thinking level and a bounded reply length to prioritize quick customer-service answers. You can change `GEMINI_MODEL` if Google changes its model availability or you choose a different model. Google currently lists Gemini 3.8 Flash for new projects and includes standard input and output in its free tier; quotas and availability can vary by account and may change.
+The recommended model is `gemini-3.1-flash-lite`, which Google describes as optimized for speed and cost efficiency. ReXo uses minimal thinking, a compact website reference, and a bounded answer length to prioritize low latency. If the model is unavailable to your key, the route tries `gemini-3.5-flash-lite` once. You can change `GEMINI_MODEL` if your key has different model access. Model access and quotas vary by account.
 
 ## Deployment
 

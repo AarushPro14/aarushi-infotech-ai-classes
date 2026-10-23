@@ -17,8 +17,10 @@ import {
   LineChart,
   Lock,
   Mail,
+  Menu,
   MapPin,
   MessageCircle,
+  X,
   MonitorSmartphone,
   Palette,
   PenTool,
@@ -34,6 +36,7 @@ import {
   Zap,
 } from "lucide-react";
 import { motion } from "motion/react";
+import { useState } from "react";
 
 import Hero from "@/components/Hero";
 import DataExperience from "@/components/DataExperience";
@@ -221,6 +224,8 @@ function GlowDivider() {
 ========================================================= */
 
 export default function HomePage() {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
   return (
     <main className="min-h-screen overflow-hidden bg-[#020617] text-white">
       {/* =====================================================
@@ -265,7 +270,7 @@ export default function HomePage() {
       ===================================================== */}
 
       <nav className="fixed left-0 right-0 top-0 z-50 border-b border-white/5 bg-[#020617]/75 backdrop-blur-2xl">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 md:px-8">
+        <div className="relative mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-5 sm:py-4 md:px-8">
           <Link href="/" className="flex items-center gap-3">
             <div className="relative h-10 w-10 overflow-hidden rounded-xl border border-cyan-400/30 bg-white/5">
               <Image
@@ -287,7 +292,7 @@ export default function HomePage() {
             </div>
           </Link>
 
-          <div className="hidden items-center gap-8 md:flex">
+          <div className="hidden items-center gap-8 lg:flex">
             <Link
               href="/"
               className="text-sm font-bold text-cyan-300"
@@ -331,12 +336,38 @@ export default function HomePage() {
             </Link>
           </div>
 
-          <Link
-            href="/booking"
-            className="rounded-full border border-emerald-300/30 bg-emerald-300/10 px-4 py-2 text-xs font-black text-emerald-200 md:hidden"
+          <button
+            type="button"
+            onClick={() => setMobileMenuOpen((open) => !open)}
+            aria-expanded={mobileMenuOpen}
+            aria-controls="home-mobile-navigation"
+            aria-label={mobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
+            className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-200 transition hover:border-cyan-300/30 hover:text-cyan-200 lg:hidden"
           >
-            BOOK A CLASS
-          </Link>
+            {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
+
+          {mobileMenuOpen && (
+            <div id="home-mobile-navigation" className="absolute left-3 right-3 top-[calc(100%-0.25rem)] z-50 max-h-[calc(100dvh-5rem)] overflow-y-auto rounded-2xl border border-white/10 bg-[#06111f]/95 p-2 shadow-2xl shadow-black/40 backdrop-blur-2xl lg:hidden">
+              {[
+                { label: "Home", href: "/" },
+                { label: "AI Classes", href: "/classes" },
+                { label: "About", href: "/about" },
+                { label: "Send Query", href: "/send-query" },
+                { label: "Book a Class", href: "/booking" },
+                { label: "Get Started", href: "/start" },
+              ].map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="block rounded-xl px-4 py-3 text-sm font-semibold text-slate-200 transition hover:bg-white/5 hover:text-cyan-200"
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
       </nav>
 

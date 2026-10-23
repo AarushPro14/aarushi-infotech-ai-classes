@@ -7,7 +7,7 @@ type Turn = { role: "user" | "model"; parts: { text: string }[] };
 
 function buildConversation(history: unknown, message: string): Turn[] {
   const turns: Turn[] = [];
-  const entries = Array.isArray(history) ? history.slice(-12) : [];
+  const entries = Array.isArray(history) ? history.slice(-8) : [];
 
   for (const entry of entries) {
     if (typeof entry !== "object" || entry === null || !("role" in entry) || !("content" in entry)) continue;
@@ -42,24 +42,19 @@ export async function POST(request: Request) {
   const apiKey = process.env.GEMINI_API_KEY?.trim();
   if (!apiKey) return NextResponse.json({ success: false, error: "ReXo’s AI connection is not configured. Please contact Aarushi Infotech." }, { status: 503 });
 
-  // General-purpose Gemini chat models whose standard API usage is listed as free.
-  // Keep older, access-restricted 2.5 models last as compatibility fallbacks.
-  const models = [
-    "gemini-3.8-flash",
-    "gemini-3.6-flash",
-    "gemini-3.5-flash",
-    "gemini-3.5-flash-lite",
-    "gemini-3.1-flash-lite",
-    "gemini-2.5-flash",
-    "gemini-2.5-flash-lite",
-  ];
+  // Flash-Lite is optimized for fast, high-volume answers. An environment
+  // override is useful when a deployment's key has different model access.
+  const preferredModel = process.env.GEMINI_MODEL?.trim() || "gemini-3.1-flash-lite";
+  const models = [...new Set([preferredModel, "gemini-3.5-flash-lite"])];
+  const thinkingLevel = preferredModel.includes("flash-lite") ? "minimal" : "low";
   let model = models[0];
   try {
     const requestBody = JSON.stringify({
         systemInstruction: { parts: [{ text: rexoSystemInstruction }] },
         contents: buildConversation("history" in body ? body.history : undefined, message),
         generationConfig: {
-          maxOutputTokens: 1400,
+          maxOutputTokens: 700,
+          thinkingConfig: { thinkingLevel },
           responseMimeType: "application/json",
           responseSchema: {
             type: "OBJECT",
@@ -81,9 +76,9 @@ export async function POST(request: Request) {
       });
       result = await response.json().catch(() => null);
 
-      const shouldTryFallback = !response.ok && [404, 429, 500, 503].includes(response.status) && index < models.length - 1;
+      const shouldTryFallback = !response.ok && response.status === 404 && index < models.length - 1;
       if (!shouldTryFallback) break;
-      console.warn("[ReXo] Gemini fallback triggered; trying the next free-tier Flash model", {
+      console.warn("[ReXo] Configured Gemini model unavailable; trying the Flash-Lite fallback", {
         httpStatus: response.status,
         model,
       });
@@ -108,9 +103,9 @@ export async function POST(request: Request) {
             : status === 404
               ? "The selected Gemini model is not available to this key or project. Check Gemini model access in Google AI Studio."
               : status === 503 || status === 500
-                ? "Gemini is temporarily overloaded. ReXo tried its available backup models; please try again shortly."
+                ? "Gemini is temporarily overloaded. Please try again shortly."
               : status === 429
-                ? "Gemini’s free-tier limit is still reached after trying backup models. Check the project’s usage limits in Google AI Studio or try again after the limit resets."
+                ? "Gemini’s request limit is reached. Check the project’s usage limits in Google AI Studio or try again after the limit resets."
               : status === 400
                 ? `Google rejected the Gemini request (${providerStatus || status}). ${providerMessage || "Check the server terminal for details."}`
                 : "ReXo couldn’t reach Gemini just now. Check the server terminal for the Gemini error and try again.";
