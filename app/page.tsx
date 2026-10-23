@@ -3,7 +3,6 @@
 import Image from "next/image";
 import Link from "next/link";
 import {
-  ArrowDown,
   ArrowRight,
   BarChart3,
   Brain,
@@ -13,7 +12,6 @@ import {
   FileBarChart,
   FileText,
   Globe2,
-  Layers3,
   LineChart,
   Lock,
   Mail,
@@ -25,7 +23,6 @@ import {
   Palette,
   PenTool,
   Phone,
-  Play,
   Presentation,
   ShieldCheck,
   Sparkles,
@@ -132,33 +129,6 @@ const featureCards = [
     icon: BriefcaseBusiness,
     title: "Business Technology",
     text: "Connect AI concepts with modern business applications.",
-  },
-];
-
-const dataSteps = [
-  {
-    number: "01",
-    title: "Collect",
-    text: "Gather relevant information from useful sources.",
-    icon: Database,
-  },
-  {
-    number: "02",
-    title: "Organize",
-    text: "Structure information so it becomes easier to understand.",
-    icon: Layers3,
-  },
-  {
-    number: "03",
-    title: "Analyze",
-    text: "Look for patterns, relationships, changes, and trends.",
-    icon: LineChart,
-  },
-  {
-    number: "04",
-    title: "Understand",
-    text: "Turn analysis into meaningful observations and insights.",
-    icon: TrendingUp,
   },
 ];
 
